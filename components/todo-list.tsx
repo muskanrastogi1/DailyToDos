@@ -5,6 +5,7 @@ import { TodoItem } from "./todo-item"
 import { AddTodo } from "./add-todo"
 import { MagicParticles } from "./magic-particles"
 import { CelebrityPicker } from "./celebrity-picker"
+import { MotivationBooster } from "./motivation-booster"
 import { CheckSquare, Square, Loader2, AlertCircle } from "lucide-react"
 import type { CelebrityRitual } from "@/lib/celebrity-rituals"
 import { createClient } from "@/lib/supabase/client"
@@ -283,11 +284,14 @@ export function TodoList() {
                   </p>
                 )}
               </div>
-              <CelebrityPicker 
-                onSelectRituals={handleSelectCelebrityRituals}
-                currentCelebrity={currentCelebrity}
-                onClearCelebrity={handleClearCelebrity}
-              />
+              <div className="flex flex-col gap-2">
+                <CelebrityPicker 
+                  onSelectRituals={handleSelectCelebrityRituals}
+                  currentCelebrity={currentCelebrity}
+                  onClearCelebrity={handleClearCelebrity}
+                />
+                <MotivationBooster />
+              </div>
             </div>
           </div>
 
