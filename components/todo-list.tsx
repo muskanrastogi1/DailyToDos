@@ -20,6 +20,15 @@ interface Todo {
 
 const INITIAL_TODOS: Todo[] = []
 
+// Generate a proper UUID v4
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
 // Get or create a session ID for anonymous users
 function getSessionId(): string {
   if (typeof window === 'undefined') return ''
@@ -170,7 +179,7 @@ export function TodoList() {
       : undefined
     
     const newTodo: Todo = { 
-      id: Date.now().toString(), 
+      id: generateUUID(), 
       text, 
       completed: false, 
       timerDuration 
@@ -198,8 +207,8 @@ export function TodoList() {
     // Clear existing todos first
     await clearAllTodos()
     
-    const newTodos: Todo[] = rituals.map((ritual, index) => ({
-      id: `celeb-${Date.now()}-${index}`,
+    const newTodos: Todo[] = rituals.map((ritual) => ({
+      id: generateUUID(),
       text: ritual,
       completed: false,
     }))
