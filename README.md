@@ -20,11 +20,11 @@ To take DailyToDo from a "cool tool" to an "essential habit," here’s what I am
 
 ## How It Works
 
-Dump it: Add your tasks for the day. No pressure.
-Time it: Give each task a realistic countdown (or don’t, I’m not your boss!).
-Find your Flow: Hit play. The calming audio kicks in, and your first timer starts ticking.
-The Pivot: Life happens. Need to switch tasks? Toggle between them and watch the timers dance with you in real-time.
-Celebrate: When you’re finished, type Done. Enjoy the confetti. You earned that dopamine hit.
+- Dump it: Add your tasks for the day. No pressure.
+- Time it: Give each task a realistic countdown (or don’t, I’m not your boss!).
+- Find your Flow: Hit play. The calming audio kicks in, and your first timer starts ticking.
+- The Pivot: Life happens. Need to switch tasks? Toggle between them and watch the timers dance with you in real-time.
+- Celebrate: When you’re finished, type Done. Enjoy the confetti. You earned that dopamine hit.
 
 Bonus: Since I’ve hooked this up to Supabase, your tasks and "wins" are saved forever. No more losing your progress when you refresh the page.
 
