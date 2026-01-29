@@ -1,35 +1,142 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { TodoItem } from "./todo-item"
 import { AddTodo } from "./add-todo"
 import { MagicParticles } from "./magic-particles"
 import { CelebrityPicker } from "./celebrity-picker"
-import { CheckSquare, Square } from "lucide-react"
+import { CheckSquare, Square, Loader2, AlertCircle } from "lucide-react"
 import type { CelebrityRitual } from "@/lib/celebrity-rituals"
+import { createClient } from "@/lib/supabase/client"
 
 interface Todo {
   id: string
   text: string
   completed: boolean
   timerDuration?: number
+  celebrityId?: string
+  createdAt?: string
 }
 
-const INITIAL_TODOS: Todo[] = [
-  { id: "1", text: "Complete the morning workout", completed: false },
-  { id: "2", text: "Review project proposal", completed: false },
-  { id: "3", text: "Call mom", completed: false },
-]
+const INITIAL_TODOS: Todo[] = []
+
+// Get or create a session ID for anonymous users
+function getSessionId(): string {
+  if (typeof window === 'undefined') return ''
+  let sessionId = localStorage.getItem('todo_session_id')
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    localStorage.setItem('todo_session_id', sessionId)
+  }
+  return sessionId
+}
 
 export function TodoList() {
-  const [todos, setTodos] = useState<Todo[]>(INITIAL_TODOS)
+  const [todos, setTodos] = useState<Todo[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [particleTrigger, setParticleTrigger] = useState(0)
   const [particleOrigin, setParticleOrigin] = useState({ x: 0, y: 0 })
   const [totalCompleted, setTotalCompleted] = useState(0)
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null)
   const [currentCelebrity, setCurrentCelebrity] = useState<CelebrityRitual | null>(null)
+  const [sessionId, setSessionId] = useState<string>('')
 
-  const handleComplete = useCallback((id: string, rect: DOMRect) => {
+  const supabase = createClient()
+
+  // Load todos from Supabase on mount
+  useEffect(() => {
+    const id = getSessionId()
+    setSessionId(id)
+    
+    async function loadTodos() {
+      try {
+        const { data, error } = await supabase
+          .from('todos')
+          .select('*')
+          .eq('session_id', id)
+          .order('created_at', { ascending: true })
+
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          const loadedTodos: Todo[] = data.map((item) => ({
+            id: item.id,
+            text: item.text,
+            completed: item.completed,
+            timerDuration: item.timer_duration || undefined,
+            celebrityId: item.celebrity_id || undefined,
+            createdAt: item.created_at,
+          }))
+          setTodos(loadedTodos)
+          
+          // Check if there's a celebrity associated
+          const celebrityTodo = data.find((t) => t.celebrity_id)
+          if (celebrityTodo?.celebrity_id) {
+            const { celebrities } = await import('@/lib/celebrity-rituals')
+            const celeb = celebrities.find((c) => c.id === celebrityTodo.celebrity_id)
+            if (celeb) setCurrentCelebrity(celeb)
+          }
+          
+          // Count already completed todos
+          const completedCount = data.filter((t) => t.completed).length
+          setTotalCompleted(completedCount)
+        }
+      } catch (err) {
+        console.error('Error loading todos:', err)
+        setError('Failed to load your tasks. Please refresh the page.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadTodos()
+  }, [supabase])
+
+  // Save todo to Supabase
+  const saveTodo = useCallback(async (todo: Todo, celebrityId?: string) => {
+    try {
+      const { error } = await supabase.from('todos').upsert({
+        id: todo.id,
+        text: todo.text,
+        completed: todo.completed,
+        timer_duration: todo.timerDuration || null,
+        celebrity_id: celebrityId || null,
+        session_id: sessionId,
+      })
+      if (error) throw error
+    } catch (err) {
+      console.error('Error saving todo:', err)
+    }
+  }, [supabase, sessionId])
+
+  // Delete todo from Supabase
+  const deleteTodoFromDb = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase.from('todos').delete().eq('id', id)
+      if (error) throw error
+    } catch (err) {
+      console.error('Error deleting todo:', err)
+    }
+  }, [supabase])
+
+  // Clear all todos for this session
+  const clearAllTodos = useCallback(async () => {
+    try {
+      const { error } = await supabase.from('todos').delete().eq('session_id', sessionId)
+      if (error) throw error
+    } catch (err) {
+      console.error('Error clearing todos:', err)
+    }
+  }, [supabase, sessionId])
+
+  const handleComplete = useCallback(async (id: string, rect: DOMRect) => {
+    const todoToComplete = todos.find(t => t.id === id)
+    if (todoToComplete) {
+      const updatedTodo = { ...todoToComplete, completed: true }
+      await saveTodo(updatedTodo, currentCelebrity?.id)
+    }
+    
     setTodos((prev) =>
       prev.map((todo) =>
         todo.id === id ? { ...todo, completed: true } : todo
@@ -46,26 +153,33 @@ export function TodoList() {
     if (activeTimerId === id) {
       setActiveTimerId(null)
     }
-  }, [activeTimerId])
+  }, [activeTimerId, todos, saveTodo, currentCelebrity])
 
-  const handleDelete = useCallback((id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
+    await deleteTodoFromDb(id)
     setTodos((prev) => prev.filter((todo) => todo.id !== id))
     // Stop timer if deleting the task with active timer
     if (activeTimerId === id) {
       setActiveTimerId(null)
     }
-  }, [activeTimerId])
+  }, [activeTimerId, deleteTodoFromDb])
 
-  const handleAdd = useCallback((text: string, timer?: { hours: number; minutes: number }) => {
+  const handleAdd = useCallback(async (text: string, timer?: { hours: number; minutes: number }) => {
     const timerDuration = timer 
       ? (timer.hours * 60 * 60 * 1000) + (timer.minutes * 60 * 1000)
       : undefined
     
-    setTodos((prev) => [
-      ...prev,
-      { id: Date.now().toString(), text, completed: false, timerDuration },
-    ])
-  }, [])
+    const newTodo: Todo = { 
+      id: Date.now().toString(), 
+      text, 
+      completed: false, 
+      timerDuration 
+    }
+    
+    await saveTodo(newTodo, currentCelebrity?.id)
+    
+    setTodos((prev) => [...prev, newTodo])
+  }, [saveTodo, currentCelebrity])
 
   const handleTimeUp = useCallback((id: string) => {
     // Timer expired - could add additional notification here
@@ -80,24 +194,34 @@ export function TodoList() {
     setActiveTimerId(null)
   }, [])
 
-  const handleSelectCelebrityRituals = useCallback((rituals: string[], celebrity: CelebrityRitual) => {
+  const handleSelectCelebrityRituals = useCallback(async (rituals: string[], celebrity: CelebrityRitual) => {
+    // Clear existing todos first
+    await clearAllTodos()
+    
     const newTodos: Todo[] = rituals.map((ritual, index) => ({
       id: `celeb-${Date.now()}-${index}`,
       text: ritual,
       completed: false,
     }))
+    
+    // Save all new todos to database
+    for (const todo of newTodos) {
+      await saveTodo(todo, celebrity.id)
+    }
+    
     setTodos(newTodos)
     setCurrentCelebrity(celebrity)
     setTotalCompleted(0)
     setActiveTimerId(null)
-  }, [])
+  }, [clearAllTodos, saveTodo])
 
-  const handleClearCelebrity = useCallback(() => {
+  const handleClearCelebrity = useCallback(async () => {
+    await clearAllTodos()
     setCurrentCelebrity(null)
-    setTodos(INITIAL_TODOS)
+    setTodos([])
     setTotalCompleted(0)
     setActiveTimerId(null)
-  }, [])
+  }, [clearAllTodos])
 
   const activeTodos = todos.filter((t) => !t.completed)
   const completedTodos = todos.filter((t) => t.completed)
@@ -208,8 +332,26 @@ export function TodoList() {
             </div>
           )}
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="px-6 py-12 pl-16 text-center">
+              <Loader2 className="mx-auto mb-4 h-12 w-12 text-muted-foreground animate-spin" />
+              <h3 className="text-2xl">Loading your tasks...</h3>
+              <p className="text-lg text-muted-foreground">Checking for leftover tasks from yesterday</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="px-6 py-12 pl-16 text-center">
+              <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
+              <h3 className="text-2xl text-destructive">Oops!</h3>
+              <p className="text-lg text-muted-foreground">{error}</p>
+            </div>
+          )}
+
           {/* Empty State */}
-          {todos.length === 0 && (
+          {!isLoading && !error && todos.length === 0 && (
             <div className="px-6 py-12 pl-16 text-center">
               <Square className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
               <h3 className="text-2xl">Nothing here yet</h3>
@@ -227,7 +369,7 @@ export function TodoList() {
 
         {/* Instructions */}
         <p className="mt-6 text-center text-base text-muted-foreground">
-          {'Type "done" to complete a task • Click the clock to add a timer • Only one timer runs at a time'}
+          {'Type "done" to complete a task • Your tasks are saved automatically • Leftover tasks carry over to the next day'}
         </p>
       </div>
     </div>
