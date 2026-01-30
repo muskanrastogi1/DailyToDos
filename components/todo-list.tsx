@@ -54,6 +54,13 @@ export function TodoList() {
 
   const supabase = createClient()
 
+  // Helper to check if a date is today
+  const isToday = (dateString: string) => {
+    const date = new Date(dateString)
+    const today = new Date()
+    return date.toDateString() === today.toDateString()
+  }
+
   // Load todos from Supabase on mount
   useEffect(() => {
     const id = getSessionId()
@@ -70,7 +77,31 @@ export function TodoList() {
         if (error) throw error
 
         if (data && data.length > 0) {
-          const loadedTodos: Todo[] = data.map((item) => ({
+          // Filter out completed tasks from previous days
+          const todosToKeep = data.filter((item) => {
+            // Keep all incomplete tasks
+            if (!item.completed) return true
+            // Keep completed tasks only if completed today
+            if (item.completed_at && isToday(item.completed_at)) return true
+            // Keep completed tasks from today (fallback to created_at if no completed_at)
+            if (!item.completed_at && item.created_at && isToday(item.created_at)) return true
+            return false
+          })
+
+          // Delete old completed tasks from database
+          const todosToDelete = data.filter((item) => {
+            if (!item.completed) return false
+            if (item.completed_at && isToday(item.completed_at)) return false
+            if (!item.completed_at && item.created_at && isToday(item.created_at)) return false
+            return true
+          })
+
+          if (todosToDelete.length > 0) {
+            const idsToDelete = todosToDelete.map((t) => t.id)
+            await supabase.from('todos').delete().in('id', idsToDelete)
+          }
+
+          const loadedTodos: Todo[] = todosToKeep.map((item) => ({
             id: item.id,
             text: item.text,
             completed: item.completed,
@@ -80,16 +111,16 @@ export function TodoList() {
           }))
           setTodos(loadedTodos)
           
-          // Check if there's a celebrity associated
-          const celebrityTodo = data.find((t) => t.celebrity_id)
+          // Check if there's a celebrity associated (only from incomplete tasks)
+          const celebrityTodo = todosToKeep.find((t) => t.celebrity_id && !t.completed)
           if (celebrityTodo?.celebrity_id) {
             const { celebrities } = await import('@/lib/celebrity-rituals')
             const celeb = celebrities.find((c) => c.id === celebrityTodo.celebrity_id)
             if (celeb) setCurrentCelebrity(celeb)
           }
           
-          // Count already completed todos
-          const completedCount = data.filter((t) => t.completed).length
+          // Count today's completed todos only
+          const completedCount = todosToKeep.filter((t) => t.completed).length
           setTotalCompleted(completedCount)
         }
       } catch (err) {
