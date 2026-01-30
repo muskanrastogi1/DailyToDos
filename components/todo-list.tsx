@@ -141,6 +141,7 @@ export function TodoList() {
         id: todo.id,
         text: todo.text,
         completed: todo.completed,
+        completed_at: todo.completed ? new Date().toISOString() : null,
         timer_duration: todo.timerDuration || null,
         celebrity_id: celebrityId || null,
         session_id: sessionId,
