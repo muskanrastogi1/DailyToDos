@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motivationalStories, quickBoosts, type MotivationalStory } from "@/lib/motivational-stories"
-import { Heart, Sparkles, ChevronRight, ChevronLeft, RefreshCw, BookOpen, Zap } from "lucide-react"
+import { motivationalStories, quickBoosts, hypeSongs, type MotivationalStory, type HypeSong } from "@/lib/motivational-stories"
+import { Heart, Sparkles, ChevronRight, ChevronLeft, RefreshCw, BookOpen, Zap, Music, Play, ExternalLink, Shuffle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,17 +15,28 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 export function MotivationBooster() {
   const [open, setOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<"menu" | "story" | "boost">("menu")
+  const [viewMode, setViewMode] = useState<"menu" | "story" | "boost" | "playlist">("menu")
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
   const [currentBoost, setCurrentBoost] = useState("")
   const [isAnimating, setIsAnimating] = useState(false)
+  const [shuffledSongs, setShuffledSongs] = useState<HypeSong[]>([])
 
   const currentStory = motivationalStories[currentStoryIndex]
 
   useEffect(() => {
     // Set random boost on mount
     setCurrentBoost(quickBoosts[Math.floor(Math.random() * quickBoosts.length)])
+    // Shuffle songs on mount
+    setShuffledSongs([...hypeSongs].sort(() => Math.random() - 0.5))
   }, [])
+
+  const shufflePlaylist = () => {
+    setIsAnimating(true)
+    setTimeout(() => {
+      setShuffledSongs([...hypeSongs].sort(() => Math.random() - 0.5))
+      setIsAnimating(false)
+    }, 150)
+  }
 
   const handleNextStory = () => {
     setIsAnimating(true)
@@ -74,6 +85,13 @@ export function MotivationBooster() {
   const handleViewBoost = () => {
     handleNewBoost()
     setViewMode("boost")
+  }
+
+  const handleViewPlaylist = () => {
+    if (shuffledSongs.length === 0) {
+      setShuffledSongs([...hypeSongs].sort(() => Math.random() - 0.5))
+    }
+    setViewMode("playlist")
   }
 
   return (
@@ -139,6 +157,24 @@ export function MotivationBooster() {
                   </div>
                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-violet-600 transition-colors" />
+              </button>
+
+              <button
+                onClick={handleViewPlaylist}
+                className="w-full flex items-center gap-4 p-5 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-950/50 dark:hover:to-emerald-950/50 transition-all group border border-green-200 dark:border-green-900"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 shrink-0">
+                  <Music className="h-6 w-6" />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-semibold text-lg text-foreground">
+                    Hype Playlist
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Songs to get you fired up and ready to conquer
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-green-600 transition-colors" />
               </button>
             </div>
 
@@ -268,6 +304,70 @@ export function MotivationBooster() {
               >
                 <RefreshCw className="h-4 w-4" />
                 Give Me Another
+              </Button>
+            </div>
+          </>
+        )}
+
+        {viewMode === "playlist" && (
+          <>
+            <DialogHeader className="px-6 py-4 border-b border-border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewMode("menu")}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <DialogTitle className="flex items-center gap-2 text-xl">
+                  <Music className="h-5 w-5 text-green-500" />
+                  Hype Playlist
+                </DialogTitle>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 ml-7">
+                {shuffledSongs.length} songs to fuel your fire
+              </p>
+            </DialogHeader>
+
+            <ScrollArea className="h-[380px]">
+              <div 
+                className={`p-4 space-y-2 transition-opacity duration-150 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}
+              >
+                {shuffledSongs.map((song, index) => (
+                  <a
+                    key={song.id}
+                    href={song.spotifyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-3 rounded-lg hover:bg-green-50 dark:hover:bg-green-950/30 transition-all group border border-transparent hover:border-green-200 dark:hover:border-green-900"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 shrink-0 group-hover:bg-green-500 group-hover:text-white transition-colors">
+                      <Play className="h-5 w-5 ml-0.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-foreground truncate">
+                        {index + 1}. {song.title}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {song.artist}
+                      </div>
+                      <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                        {song.vibe}
+                      </div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </a>
+                ))}
+              </div>
+            </ScrollArea>
+
+            <div className="px-6 py-4 border-t border-border bg-muted/30">
+              <Button
+                onClick={shufflePlaylist}
+                className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Shuffle className="h-4 w-4" />
+                Shuffle Playlist
               </Button>
             </div>
           </>

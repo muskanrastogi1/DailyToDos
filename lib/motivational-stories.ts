@@ -106,6 +106,143 @@ export const motivationalStories: MotivationalStory[] = [
   }
 ]
 
+export interface HypeSong {
+  id: string
+  title: string
+  artist: string
+  spotifyUrl: string
+  vibe: string
+}
+
+export const hypeSongs: HypeSong[] = [
+  {
+    id: "lose-yourself",
+    title: "Lose Yourself",
+    artist: "Eminem",
+    spotifyUrl: "https://open.spotify.com/track/5Z01UMMf7V1o0MzF86s6WJ",
+    vibe: "The ultimate motivation anthem"
+  },
+  {
+    id: "stronger",
+    title: "Stronger",
+    artist: "Kanye West",
+    spotifyUrl: "https://open.spotify.com/track/4fzsfWzRhPawzqhX8Qt9F3",
+    vibe: "What doesn't kill you makes you stronger"
+  },
+  {
+    id: "eye-of-tiger",
+    title: "Eye of the Tiger",
+    artist: "Survivor",
+    spotifyUrl: "https://open.spotify.com/track/2HHtWyy5CgaQbC7XSoOb0e",
+    vibe: "Classic underdog energy"
+  },
+  {
+    id: "run-this-town",
+    title: "Run This Town",
+    artist: "JAY-Z ft. Rihanna & Kanye",
+    spotifyUrl: "https://open.spotify.com/track/2igMKN1gOcyA2HFX2gY7d7",
+    vibe: "Take over the world energy"
+  },
+  {
+    id: "power",
+    title: "POWER",
+    artist: "Kanye West",
+    spotifyUrl: "https://open.spotify.com/track/2gZUPNdnz5Y45eiGxpHGSc",
+    vibe: "Feel unstoppable"
+  },
+  {
+    id: "till-i-collapse",
+    title: "Till I Collapse",
+    artist: "Eminem ft. Nate Dogg",
+    spotifyUrl: "https://open.spotify.com/track/4xkOaSrkexMciUUogZKVTS",
+    vibe: "Never give up anthem"
+  },
+  {
+    id: "cant-hold-us",
+    title: "Can't Hold Us",
+    artist: "Macklemore & Ryan Lewis",
+    spotifyUrl: "https://open.spotify.com/track/3bidbhpOYeV4knp8AIu8Xn",
+    vibe: "Celebration of hustle"
+  },
+  {
+    id: "humble",
+    title: "HUMBLE.",
+    artist: "Kendrick Lamar",
+    spotifyUrl: "https://open.spotify.com/track/7KXjTSCq5nL1LoYtL7XAwS",
+    vibe: "Stay humble, work hard"
+  },
+  {
+    id: "sicko-mode",
+    title: "SICKO MODE",
+    artist: "Travis Scott ft. Drake",
+    spotifyUrl: "https://open.spotify.com/track/2xLMifQCjDGFmkHkpNLD9h",
+    vibe: "Go crazy energy"
+  },
+  {
+    id: "started-bottom",
+    title: "Started From The Bottom",
+    artist: "Drake",
+    spotifyUrl: "https://open.spotify.com/track/3T4tUhGYeRNVUGevb0wThu",
+    vibe: "Celebrate your journey"
+  },
+  {
+    id: "all-i-do-win",
+    title: "All I Do Is Win",
+    artist: "DJ Khaled ft. T-Pain",
+    spotifyUrl: "https://open.spotify.com/track/3Ylmm0dHvIJPdAFDWDN9bi",
+    vibe: "Winner mentality"
+  },
+  {
+    id: "dont-stop-believing",
+    title: "Don't Stop Believin'",
+    artist: "Journey",
+    spotifyUrl: "https://open.spotify.com/track/4bHsxqR3GMrXTxEPLuK5ue",
+    vibe: "Classic hope anthem"
+  },
+  {
+    id: "work-harder",
+    title: "Work",
+    artist: "Rihanna ft. Drake",
+    spotifyUrl: "https://open.spotify.com/track/4wJjSK0TX8rAP06sIoBJWD",
+    vibe: "Put in the hours"
+  },
+  {
+    id: "we-are-champions",
+    title: "We Are the Champions",
+    artist: "Queen",
+    spotifyUrl: "https://open.spotify.com/track/7ccI9cStQbQdystvc6TvxD",
+    vibe: "Victory anthem"
+  },
+  {
+    id: "believer",
+    title: "Believer",
+    artist: "Imagine Dragons",
+    spotifyUrl: "https://open.spotify.com/track/0pqnGHJpmpxLKifKRmU6WP",
+    vibe: "Pain makes you stronger"
+  },
+  {
+    id: "hall-fame",
+    title: "Hall of Fame",
+    artist: "The Script ft. will.i.am",
+    spotifyUrl: "https://open.spotify.com/track/2Zlx64FHC1vlGdTKj6Mnlv",
+    vibe: "You can be legendary"
+  },
+  {
+    id: "roar",
+    title: "Roar",
+    artist: "Katy Perry",
+    spotifyUrl: "https://open.spotify.com/track/6F5c58TMEs1byxUstkzVeM",
+    vibe: "Find your voice"
+  },
+  {
+    id: "fight-song",
+    title: "Fight Song",
+    artist: "Rachel Platten",
+    spotifyUrl: "https://open.spotify.com/track/4lEqOjBd3oN0g3TBU7nEWV",
+    vibe: "Small but mighty"
+  }
+]
+
 export const quickBoosts: string[] = [
   "You've survived 100% of your worst days so far. You're undefeated.",
   "The fact that you're looking for motivation means you haven't given up. That's strength.",
