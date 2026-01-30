@@ -174,6 +174,20 @@ export function TodoList() {
     }
   }, [activeTimerId, deleteTodoFromDb])
 
+  const handleEdit = useCallback(async (id: string, newText: string) => {
+    const todoToEdit = todos.find(t => t.id === id)
+    if (todoToEdit) {
+      const updatedTodo = { ...todoToEdit, text: newText }
+      await saveTodo(updatedTodo, currentCelebrity?.id)
+    }
+    
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.id === id ? { ...todo, text: newText } : todo
+      )
+    )
+  }, [todos, saveTodo, currentCelebrity])
+
   const handleAdd = useCallback(async (text: string, timer?: { hours: number; minutes: number }) => {
     const timerDuration = timer 
       ? (timer.hours * 60 * 60 * 1000) + (timer.minutes * 60 * 1000)
@@ -314,6 +328,7 @@ export function TodoList() {
                   activeTimerId={activeTimerId}
                   onComplete={handleComplete}
                   onDelete={handleDelete}
+                  onEdit={handleEdit}
                   onTimeUp={handleTimeUp}
                   onTimerStart={handleTimerStart}
                   onTimerStop={handleTimerStop}
@@ -337,6 +352,7 @@ export function TodoList() {
                     activeTimerId={activeTimerId}
                     onComplete={handleComplete}
                     onDelete={handleDelete}
+                    onEdit={handleEdit}
                     onTimerStart={handleTimerStart}
                     onTimerStop={handleTimerStop}
                   />
@@ -382,7 +398,7 @@ export function TodoList() {
 
         {/* Instructions */}
         <p className="mt-6 text-center text-base text-muted-foreground">
-          {'Type "done" to complete a task • Your tasks are saved automatically • Leftover tasks carry over to the next day'}
+          {'Type "done" + Enter to complete • Click task to edit • Tasks save automatically'}
         </p>
       </div>
     </div>

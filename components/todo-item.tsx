@@ -14,6 +14,7 @@ interface TodoItemProps {
   activeTimerId: string | null
   onComplete: (id: string, rect: DOMRect) => void
   onDelete: (id: string) => void
+  onEdit: (id: string, newText: string) => void
   onTimeUp?: (id: string) => void
   onTimerStart: (id: string) => void
   onTimerStop: () => void
@@ -52,7 +53,8 @@ export function TodoItem({
   timerDuration,
   activeTimerId,
   onComplete, 
-  onDelete, 
+  onDelete,
+  onEdit,
   onTimeUp,
   onTimerStart,
   onTimerStop
@@ -60,6 +62,8 @@ export function TodoItem({
   const [inputValue, setInputValue] = useState("")
   const [showMagic, setShowMagic] = useState(false)
   const [magicMessage, setMagicMessage] = useState("")
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState(text)
   const [timeLeft, setTimeLeft] = useState<number>(timerDuration || 0)
   const [totalDuration, setTotalDuration] = useState<number>(timerDuration || 0)
   const [isExpired, setIsExpired] = useState(false)
@@ -337,6 +341,30 @@ export function TodoItem({
     }
   }
 
+  const handleStartEditing = () => {
+    if (completed) return
+    setIsEditing(true)
+    setEditText(text)
+  }
+
+  const handleSaveEdit = () => {
+    const trimmedText = editText.trim()
+    if (trimmedText && trimmedText !== text) {
+      onEdit(id, trimmedText)
+    }
+    setIsEditing(false)
+  }
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      handleSaveEdit()
+    } else if (e.key === "Escape") {
+      setIsEditing(false)
+      setEditText(text)
+    }
+  }
+
   const isUrgent = timeLeft > 0 && timeLeft < 60000
   const progress = hasTimer && totalDuration ? ((totalDuration - timeLeft) / totalDuration) * 100 : 0
 
@@ -349,31 +377,32 @@ export function TodoItem({
         isExpired && !completed && "bg-destructive/10"
       )}
     >
-      {/* Checkbox */}
-      <div
-        className={cn(
-          "mt-1 flex h-6 w-6 shrink-0 items-center justify-center border-2 transition-all",
-          completed
-            ? "border-primary bg-primary text-primary-foreground"
-            : isExpired
-            ? "border-destructive"
-            : "border-muted-foreground/40"
-        )}
-      >
-        {completed && <Check className="h-4 w-4" strokeWidth={3} />}
-      </div>
-
       <div className="flex flex-1 flex-col gap-2">
-        {/* Task text */}
-        <span
-          className={cn(
-            "text-2xl leading-tight transition-all",
-            completed && "text-muted-foreground line-through decoration-2",
-            isExpired && !completed && "text-destructive"
-          )}
-        >
-          {text}
-        </span>
+        {/* Task text - editable */}
+        {isEditing ? (
+          <input
+            type="text"
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onKeyDown={handleEditKeyDown}
+            onBlur={handleSaveEdit}
+            autoFocus
+            className="w-full border-b-2 border-primary bg-transparent text-2xl leading-tight text-foreground focus:outline-none"
+          />
+        ) : (
+          <span
+            onClick={handleStartEditing}
+            className={cn(
+              "text-2xl leading-tight transition-all",
+              completed && "text-muted-foreground line-through decoration-2",
+              isExpired && !completed && "text-destructive",
+              !completed && "cursor-pointer hover:text-primary"
+            )}
+            title={!completed ? "Click to edit" : undefined}
+          >
+            {text}
+          </span>
+        )}
 
         {/* Timer Up Prompt */}
         {showPrompt && !completed && (
