@@ -315,12 +315,7 @@ export function TodoItem({
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setInputValue(value)
-    
-    if (value.toLowerCase().trim() === "done") {
-      triggerComplete()
-    }
+    setInputValue(e.target.value)
   }
 
   const triggerComplete = () => {
