@@ -2,19 +2,21 @@
 
 import React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Check, X, Clock, Play, Pause, RotateCcw, Volume2, VolumeX, Music, Plus, Minus } from "lucide-react"
+import { Check, X, Clock, Play, Pause, RotateCcw, Volume2, VolumeX, Music, Plus, Minus, StickyNote, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TodoItemProps {
   id: string
   text: string
   completed: boolean
+  notes?: string
   deadline?: number
   timerDuration?: number
   activeTimerId: string | null
   onComplete: (id: string, rect: DOMRect) => void
   onDelete: (id: string) => void
   onEdit: (id: string, newText: string) => void
+  onNotesChange: (id: string, notes: string) => void
   onTimeUp?: (id: string) => void
   onTimerStart: (id: string) => void
   onTimerStop: () => void
@@ -49,12 +51,14 @@ function formatTime(ms: number): string {
 export function TodoItem({ 
   id, 
   text, 
-  completed, 
+  completed,
+  notes,
   timerDuration,
   activeTimerId,
   onComplete, 
   onDelete,
   onEdit,
+  onNotesChange,
   onTimeUp,
   onTimerStart,
   onTimerStop
@@ -64,6 +68,9 @@ export function TodoItem({
   const [magicMessage, setMagicMessage] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(text)
+  const [showNotes, setShowNotes] = useState(!!notes)
+  const [notesText, setNotesText] = useState(notes || "")
+  const notesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [timeLeft, setTimeLeft] = useState<number>(timerDuration || 0)
   const [totalDuration, setTotalDuration] = useState<number>(timerDuration || 0)
   const [isExpired, setIsExpired] = useState(false)
@@ -360,6 +367,26 @@ export function TodoItem({
     }
   }
 
+  const handleNotesChange = (value: string) => {
+    setNotesText(value)
+    // Debounce saving notes to avoid too many DB writes
+    if (notesTimeoutRef.current) {
+      clearTimeout(notesTimeoutRef.current)
+    }
+    notesTimeoutRef.current = setTimeout(() => {
+      onNotesChange(id, value)
+    }, 500)
+  }
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (notesTimeoutRef.current) {
+        clearTimeout(notesTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const isUrgent = timeLeft > 0 && timeLeft < 60000
   const progress = hasTimer && totalDuration ? ((totalDuration - timeLeft) / totalDuration) * 100 : 0
 
@@ -575,6 +602,34 @@ export function TodoItem({
               </span>
             )}
           </div>
+        )}
+
+        {/* Notes toggle + area */}
+        {!completed && !showPrompt && (
+          <div>
+            <button
+              onClick={() => setShowNotes(!showNotes)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <StickyNote className="h-3.5 w-3.5" />
+              <span>{showNotes ? "Hide notes" : notesText ? "Show notes" : "Add notes"}</span>
+              {showNotes ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+            {showNotes && (
+              <textarea
+                value={notesText}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                placeholder="Add notes for this task..."
+                rows={2}
+                className="mt-1.5 w-full resize-none rounded border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Show notes read-only for completed tasks */}
+        {completed && notesText && (
+          <p className="text-sm italic text-muted-foreground">{notesText}</p>
         )}
 
         {/* Input field */}

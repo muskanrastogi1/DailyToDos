@@ -4,22 +4,18 @@ import { useState, useCallback, useEffect } from "react"
 import { TodoItem } from "./todo-item"
 import { AddTodo } from "./add-todo"
 import { MagicParticles } from "./magic-particles"
-import { CelebrityPicker } from "./celebrity-picker"
 import { MotivationBooster } from "./motivation-booster"
 import { CheckSquare, Square, Loader2, AlertCircle } from "lucide-react"
-import type { CelebrityRitual } from "@/lib/celebrity-rituals"
 import { createClient } from "@/lib/supabase/client"
 
 interface Todo {
   id: string
   text: string
   completed: boolean
+  notes?: string
   timerDuration?: number
-  celebrityId?: string
   createdAt?: string
 }
-
-const INITIAL_TODOS: Todo[] = []
 
 // Generate a proper UUID v4
 function generateUUID(): string {
@@ -49,7 +45,6 @@ export function TodoList() {
   const [particleOrigin, setParticleOrigin] = useState({ x: 0, y: 0 })
   const [totalCompleted, setTotalCompleted] = useState(0)
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null)
-  const [currentCelebrity, setCurrentCelebrity] = useState<CelebrityRitual | null>(null)
   const [sessionId, setSessionId] = useState<string>('')
 
   const supabase = createClient()
@@ -79,11 +74,8 @@ export function TodoList() {
         if (data && data.length > 0) {
           // Filter out completed tasks from previous days
           const todosToKeep = data.filter((item) => {
-            // Keep all incomplete tasks
             if (!item.completed) return true
-            // Keep completed tasks only if completed today
             if (item.completed_at && isToday(item.completed_at)) return true
-            // Keep completed tasks from today (fallback to created_at if no completed_at)
             if (!item.completed_at && item.created_at && isToday(item.created_at)) return true
             return false
           })
@@ -105,21 +97,12 @@ export function TodoList() {
             id: item.id,
             text: item.text,
             completed: item.completed,
+            notes: item.notes || undefined,
             timerDuration: item.timer_duration || undefined,
-            celebrityId: item.celebrity_id || undefined,
             createdAt: item.created_at,
           }))
           setTodos(loadedTodos)
           
-          // Check if there's a celebrity associated (only from incomplete tasks)
-          const celebrityTodo = todosToKeep.find((t) => t.celebrity_id && !t.completed)
-          if (celebrityTodo?.celebrity_id) {
-            const { celebrities } = await import('@/lib/celebrity-rituals')
-            const celeb = celebrities.find((c) => c.id === celebrityTodo.celebrity_id)
-            if (celeb) setCurrentCelebrity(celeb)
-          }
-          
-          // Count today's completed todos only
           const completedCount = todosToKeep.filter((t) => t.completed).length
           setTotalCompleted(completedCount)
         }
@@ -135,15 +118,15 @@ export function TodoList() {
   }, [supabase])
 
   // Save todo to Supabase
-  const saveTodo = useCallback(async (todo: Todo, celebrityId?: string) => {
+  const saveTodo = useCallback(async (todo: Todo) => {
     try {
       const { error } = await supabase.from('todos').upsert({
         id: todo.id,
         text: todo.text,
         completed: todo.completed,
         completed_at: todo.completed ? new Date().toISOString() : null,
+        notes: todo.notes || null,
         timer_duration: todo.timerDuration || null,
-        celebrity_id: celebrityId || null,
         session_id: sessionId,
       })
       if (error) throw error
@@ -162,21 +145,11 @@ export function TodoList() {
     }
   }, [supabase])
 
-  // Clear all todos for this session
-  const clearAllTodos = useCallback(async () => {
-    try {
-      const { error } = await supabase.from('todos').delete().eq('session_id', sessionId)
-      if (error) throw error
-    } catch (err) {
-      console.error('Error clearing todos:', err)
-    }
-  }, [supabase, sessionId])
-
   const handleComplete = useCallback(async (id: string, rect: DOMRect) => {
     const todoToComplete = todos.find(t => t.id === id)
     if (todoToComplete) {
       const updatedTodo = { ...todoToComplete, completed: true }
-      await saveTodo(updatedTodo, currentCelebrity?.id)
+      await saveTodo(updatedTodo)
     }
     
     setTodos((prev) =>
@@ -191,26 +164,38 @@ export function TodoList() {
     setParticleTrigger((prev) => prev + 1)
     setTotalCompleted((prev) => prev + 1)
     
-    // Stop timer if this task had the active timer
     if (activeTimerId === id) {
       setActiveTimerId(null)
     }
-  }, [activeTimerId, todos, saveTodo, currentCelebrity])
+  }, [activeTimerId, todos, saveTodo])
 
   const handleDelete = useCallback(async (id: string) => {
     await deleteTodoFromDb(id)
     setTodos((prev) => prev.filter((todo) => todo.id !== id))
-    // Stop timer if deleting the task with active timer
     if (activeTimerId === id) {
       setActiveTimerId(null)
     }
   }, [activeTimerId, deleteTodoFromDb])
 
+  const handleNotesChange = useCallback(async (id: string, newNotes: string) => {
+    const todoToUpdate = todos.find(t => t.id === id)
+    if (todoToUpdate) {
+      const updatedTodo = { ...todoToUpdate, notes: newNotes }
+      await saveTodo(updatedTodo)
+    }
+    
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.id === id ? { ...todo, notes: newNotes } : todo
+      )
+    )
+  }, [todos, saveTodo])
+
   const handleEdit = useCallback(async (id: string, newText: string) => {
     const todoToEdit = todos.find(t => t.id === id)
     if (todoToEdit) {
       const updatedTodo = { ...todoToEdit, text: newText }
-      await saveTodo(updatedTodo, currentCelebrity?.id)
+      await saveTodo(updatedTodo)
     }
     
     setTodos((prev) =>
@@ -218,7 +203,7 @@ export function TodoList() {
         todo.id === id ? { ...todo, text: newText } : todo
       )
     )
-  }, [todos, saveTodo, currentCelebrity])
+  }, [todos, saveTodo])
 
   const handleAdd = useCallback(async (text: string, timer?: { hours: number; minutes: number }) => {
     const timerDuration = timer 
@@ -232,52 +217,22 @@ export function TodoList() {
       timerDuration 
     }
     
-    await saveTodo(newTodo, currentCelebrity?.id)
+    await saveTodo(newTodo)
     
     setTodos((prev) => [...prev, newTodo])
-  }, [saveTodo, currentCelebrity])
+  }, [saveTodo])
 
-  const handleTimeUp = useCallback((id: string) => {
-    // Timer expired - could add additional notification here
+  const handleTimeUp = useCallback((_id: string) => {
+    // Timer expired
   }, [])
 
   const handleTimerStart = useCallback((id: string) => {
-    // Only one timer can be active at a time
     setActiveTimerId(id)
   }, [])
 
   const handleTimerStop = useCallback(() => {
     setActiveTimerId(null)
   }, [])
-
-  const handleSelectCelebrityRituals = useCallback(async (rituals: string[], celebrity: CelebrityRitual) => {
-    // Clear existing todos first
-    await clearAllTodos()
-    
-    const newTodos: Todo[] = rituals.map((ritual) => ({
-      id: generateUUID(),
-      text: ritual,
-      completed: false,
-    }))
-    
-    // Save all new todos to database
-    for (const todo of newTodos) {
-      await saveTodo(todo, celebrity.id)
-    }
-    
-    setTodos(newTodos)
-    setCurrentCelebrity(celebrity)
-    setTotalCompleted(0)
-    setActiveTimerId(null)
-  }, [clearAllTodos, saveTodo])
-
-  const handleClearCelebrity = useCallback(async () => {
-    await clearAllTodos()
-    setCurrentCelebrity(null)
-    setTodos([])
-    setTotalCompleted(0)
-    setActiveTimerId(null)
-  }, [clearAllTodos])
 
   const activeTodos = todos.filter((t) => !t.completed)
   const completedTodos = todos.filter((t) => t.completed)
@@ -312,13 +267,8 @@ export function TodoList() {
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </div>
                 <h1 className="mt-2 text-4xl font-semibold text-foreground md:text-5xl">
-                  {currentCelebrity ? `A Day as ${currentCelebrity.name}` : "To Do List"}
+                  To Do List
                 </h1>
-                {currentCelebrity && (
-                  <p className="mt-1 text-lg italic text-muted-foreground">
-                    "{currentCelebrity.quote}"
-                  </p>
-                )}
                 {totalCompleted > 0 && (
                   <p className="mt-2 text-xl text-muted-foreground">
                     {totalCompleted} task{totalCompleted !== 1 ? 's' : ''} done today
@@ -330,14 +280,7 @@ export function TodoList() {
                   </p>
                 )}
               </div>
-              <div className="flex flex-col gap-2">
-                <CelebrityPicker 
-                  onSelectRituals={handleSelectCelebrityRituals}
-                  currentCelebrity={currentCelebrity}
-                  onClearCelebrity={handleClearCelebrity}
-                />
-                <MotivationBooster />
-              </div>
+              <MotivationBooster />
             </div>
           </div>
 
@@ -361,6 +304,7 @@ export function TodoList() {
                   onComplete={handleComplete}
                   onDelete={handleDelete}
                   onEdit={handleEdit}
+                  onNotesChange={handleNotesChange}
                   onTimeUp={handleTimeUp}
                   onTimerStart={handleTimerStart}
                   onTimerStop={handleTimerStop}
@@ -385,6 +329,7 @@ export function TodoList() {
                     onComplete={handleComplete}
                     onDelete={handleDelete}
                     onEdit={handleEdit}
+                    onNotesChange={handleNotesChange}
                     onTimerStart={handleTimerStart}
                     onTimerStop={handleTimerStop}
                   />
@@ -430,7 +375,7 @@ export function TodoList() {
 
         {/* Instructions */}
         <p className="mt-6 text-center text-base text-muted-foreground">
-          {'Type "done" + Enter to complete • Click task to edit • Tasks save automatically'}
+          {'Type "done" + Enter to complete • Click task to edit • Add notes to any task • Saves automatically'}
         </p>
       </div>
     </div>
