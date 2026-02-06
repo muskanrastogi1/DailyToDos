@@ -14,6 +14,7 @@ interface Todo {
   id: string
   text: string
   completed: boolean
+  notes?: string
   timerDuration?: number
   celebrityId?: string
   createdAt?: string
@@ -105,6 +106,7 @@ export function TodoList() {
             id: item.id,
             text: item.text,
             completed: item.completed,
+            notes: item.notes || undefined,
             timerDuration: item.timer_duration || undefined,
             celebrityId: item.celebrity_id || undefined,
             createdAt: item.created_at,
@@ -142,6 +144,7 @@ export function TodoList() {
         text: todo.text,
         completed: todo.completed,
         completed_at: todo.completed ? new Date().toISOString() : null,
+        notes: todo.notes || null,
         timer_duration: todo.timerDuration || null,
         celebrity_id: celebrityId || null,
         session_id: sessionId,
@@ -205,6 +208,20 @@ export function TodoList() {
       setActiveTimerId(null)
     }
   }, [activeTimerId, deleteTodoFromDb])
+
+  const handleNotesChange = useCallback(async (id: string, newNotes: string) => {
+    const todoToUpdate = todos.find(t => t.id === id)
+    if (todoToUpdate) {
+      const updatedTodo = { ...todoToUpdate, notes: newNotes }
+      await saveTodo(updatedTodo, currentCelebrity?.id)
+    }
+    
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.id === id ? { ...todo, notes: newNotes } : todo
+      )
+    )
+  }, [todos, saveTodo, currentCelebrity])
 
   const handleEdit = useCallback(async (id: string, newText: string) => {
     const todoToEdit = todos.find(t => t.id === id)
@@ -361,6 +378,7 @@ export function TodoList() {
                   onComplete={handleComplete}
                   onDelete={handleDelete}
                   onEdit={handleEdit}
+                  onNotesChange={handleNotesChange}
                   onTimeUp={handleTimeUp}
                   onTimerStart={handleTimerStart}
                   onTimerStop={handleTimerStop}
@@ -385,6 +403,7 @@ export function TodoList() {
                     onComplete={handleComplete}
                     onDelete={handleDelete}
                     onEdit={handleEdit}
+                    onNotesChange={handleNotesChange}
                     onTimerStart={handleTimerStart}
                     onTimerStop={handleTimerStop}
                   />
@@ -430,7 +449,7 @@ export function TodoList() {
 
         {/* Instructions */}
         <p className="mt-6 text-center text-base text-muted-foreground">
-          {'Type "done" + Enter to complete • Click task to edit • Tasks save automatically'}
+          {'Type "done" + Enter to complete • Click task to edit • Add notes to any task • Saves automatically'}
         </p>
       </div>
     </div>
