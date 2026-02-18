@@ -77,11 +77,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+  --ruled-line: oklch(0.3 0 0);
+  --margin-line: oklch(0.45 0.1 25);
 }
 
 @theme inline {
-  --font-sans: 'Caveat', cursive;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: var(--font-inter), 'Inter', sans-serif;
+  --font-mono: var(--font-ibm-mono), 'IBM Plex Mono', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -130,6 +132,6 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground text-lg;
   }
 }
