@@ -2,7 +2,7 @@
 
 import React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Check, X, Clock, Play, Pause, RotateCcw, Volume2, VolumeX, Music, Plus, Minus, StickyNote, ChevronDown, ChevronUp, Repeat, Flame, ListChecks, AlarmClock, Ban, CirclePlay, Tag } from "lucide-react"
+import { X, Clock, Play, Pause, RotateCcw, Volume2, VolumeX, Music, Plus, Minus, StickyNote, ChevronDown, ChevronUp, Repeat, Flame, ListChecks, AlarmClock, Ban, CirclePlay, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Subtask {

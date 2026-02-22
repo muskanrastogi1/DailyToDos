@@ -6,9 +6,8 @@ import { TodoItem } from "./todo-item"
 import { AddTodo } from "./add-todo"
 import { MagicParticles } from "./magic-particles"
 import { MotivationBooster } from "./motivation-booster"
-import { CheckSquare, Square, Loader2, AlertCircle, Sun, Moon, Zap } from "lucide-react"
+import { CheckSquare, Square, Loader2, AlertCircle, Sun, Moon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
 
 interface Subtask {
   id: string
@@ -72,11 +71,8 @@ export function TodoList() {
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string>('')
   const [capDismissed, setCapDismissed] = useState(false)
-  const [focusMode, setFocusMode] = useState(false)
 
   useEffect(() => setMounted(true), [])
-
-  const supabase = createClient()
 
   // Helper to check if a date is today
   const isToday = (dateString: string) => {
@@ -85,26 +81,22 @@ export function TodoList() {
     return date.toDateString() === today.toDateString()
   }
 
-  // Load todos from Supabase on mount
+  // Load todos from local API on mount
   useEffect(() => {
     const id = getSessionId()
     setSessionId(id)
-    
+
     async function loadTodos() {
       try {
-        const { data, error } = await supabase
-          .from('todos')
-          .select('*')
-          .eq('session_id', id)
-          .order('created_at', { ascending: true })
-
-        if (error) throw error
+        const res = await fetch(`/api/todos?session_id=${encodeURIComponent(id)}`)
+        const json = await res.json()
+        if (json.error) throw new Error(json.error)
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const items = (data || []) as any[]
+        const items = (json.data || []) as any[]
         if (items.length > 0) {
           // Filter out completed tasks from previous days
-          const todosToKeep = items.filter((item) => {
+          const todosToKeep = items.filter((item: any) => {
             if (!item.completed) return true
             if (item.completed_at && isToday(item.completed_at)) return true
             if (!item.completed_at && item.created_at && isToday(item.created_at)) return true
@@ -112,7 +104,7 @@ export function TodoList() {
           })
 
           // Delete old completed tasks from database
-          const todosToDelete = items.filter((item) => {
+          const todosToDelete = items.filter((item: any) => {
             if (!item.completed) return false
             if (item.completed_at && isToday(item.completed_at)) return false
             if (!item.completed_at && item.created_at && isToday(item.created_at)) return false
@@ -120,12 +112,16 @@ export function TodoList() {
           })
 
           if (todosToDelete.length > 0) {
-            const idsToDelete = todosToDelete.map((t) => t.id)
-            await supabase.from('todos').delete().in('id', idsToDelete)
+            const idsToDelete = todosToDelete.map((t: any) => t.id)
+            await fetch('/api/todos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'delete_many', ids: idsToDelete }),
+            })
           }
 
           // Respawn recurring tasks that were completed on previous days
-          const recurringToRespawn = todosToDelete.filter((item) => item.recurring)
+          const recurringToRespawn = todosToDelete.filter((item: any) => item.recurring)
           const respawnedTodos: Todo[] = []
           for (const old of recurringToRespawn) {
             if (old.recurring === 'weekdays') {
@@ -145,10 +141,10 @@ export function TodoList() {
             respawnedTodos.push(newTodo)
           }
 
-          const loadedTodos: Todo[] = todosToKeep.map((item) => ({
+          const loadedTodos: Todo[] = todosToKeep.map((item: any) => ({
             id: item.id,
             text: item.text,
-            completed: item.completed,
+            completed: !!item.completed,
             notes: item.notes || undefined,
             timerDuration: item.timer_duration || undefined,
             priority: item.priority != null ? item.priority : undefined,
@@ -162,23 +158,30 @@ export function TodoList() {
           }))
           // Save respawned recurring tasks to DB
           for (const todo of respawnedTodos) {
-            await supabase.from('todos').upsert({
-              id: todo.id,
-              text: todo.text,
-              completed: false,
-              completed_at: null,
-              notes: todo.notes || null,
-              timer_duration: todo.timerDuration || null,
-              priority: todo.priority != null ? todo.priority : null,
-              recurring: todo.recurring || null,
-              streak: todo.streak || 0,
-              session_id: id,
+            await fetch('/api/todos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'upsert',
+                record: {
+                  id: todo.id,
+                  text: todo.text,
+                  completed: false,
+                  completed_at: null,
+                  notes: todo.notes || null,
+                  timer_duration: todo.timerDuration || null,
+                  priority: todo.priority != null ? todo.priority : null,
+                  recurring: todo.recurring || null,
+                  streak: todo.streak || 0,
+                  session_id: id,
+                },
+              }),
             })
           }
 
           setTodos([...loadedTodos, ...respawnedTodos])
 
-          const completedCount = todosToKeep.filter((t) => t.completed).length
+          const completedCount = todosToKeep.filter((t: any) => t.completed).length
           setTotalCompleted(completedCount)
         }
       } catch (err) {
@@ -190,42 +193,55 @@ export function TodoList() {
     }
 
     loadTodos()
-  }, [supabase])
+  }, [])
 
-  // Save todo to Supabase
+  // Save todo to local API
   const saveTodo = useCallback(async (todo: Todo) => {
     try {
-      const { error } = await supabase.from('todos').upsert({
-        id: todo.id,
-        text: todo.text,
-        completed: todo.completed,
-        completed_at: todo.completed ? new Date().toISOString() : null,
-        notes: todo.notes || null,
-        timer_duration: todo.timerDuration || null,
-        priority: todo.priority != null ? todo.priority : null,
-        recurring: todo.recurring || null,
-        streak: todo.streak || 0,
-        subtasks: todo.subtasks ? JSON.stringify(todo.subtasks) : null,
-        category: todo.category || null,
-        snoozed_until: todo.snoozedUntil || null,
-        status: todo.status || 'active',
-        session_id: sessionId,
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upsert',
+          record: {
+            id: todo.id,
+            text: todo.text,
+            completed: todo.completed,
+            completed_at: todo.completed ? new Date().toISOString() : null,
+            notes: todo.notes || null,
+            timer_duration: todo.timerDuration || null,
+            priority: todo.priority != null ? todo.priority : null,
+            recurring: todo.recurring || null,
+            streak: todo.streak || 0,
+            subtasks: todo.subtasks ? JSON.stringify(todo.subtasks) : null,
+            category: todo.category || null,
+            snoozed_until: todo.snoozedUntil || null,
+            status: todo.status || 'active',
+            session_id: sessionId,
+          },
+        }),
       })
-      if (error) throw error
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
     } catch (err) {
       console.error('Error saving todo:', err)
     }
-  }, [supabase, sessionId])
+  }, [sessionId])
 
-  // Delete todo from Supabase
+  // Delete todo from local API
   const deleteTodoFromDb = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase.from('todos').delete().eq('id', id)
-      if (error) throw error
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', record: { id } }),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
     } catch (err) {
       console.error('Error deleting todo:', err)
     }
-  }, [supabase])
+  }, [])
 
   const handleComplete = useCallback(async (id: string, rect: DOMRect) => {
     const todoToComplete = todos.find(t => t.id === id)
@@ -433,21 +449,6 @@ export function TodoList() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {activeTodos.length > 0 && (
-                  <button
-                    onClick={() => setFocusMode(!focusMode)}
-                    className={cn(
-                      "flex h-9 items-center gap-1.5 rounded border px-3 font-mono text-sm transition-colors",
-                      focusMode
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-dashed border-border text-muted-foreground hover:border-foreground hover:text-foreground"
-                    )}
-                    title={focusMode ? "Exit focus mode" : "Focus on one task at a time"}
-                  >
-                    <Zap className="h-3.5 w-3.5" />
-                    {focusMode ? "Exit Focus" : "Focus"}
-                  </button>
-                )}
                 <MotivationBooster />
                 {mounted && (
                   <button
@@ -467,42 +468,8 @@ export function TodoList() {
             <AddTodo onAdd={handleAdd} />
           </div>
 
-          {/* Focus Mode */}
-          {focusMode && activeTodos.length > 0 && (
-            <div className="px-6 pl-16">
-              <div className="flex items-center gap-2 border-b border-ruled-line py-3 text-base text-primary">
-                <Zap className="h-4 w-4" />
-                <span className="font-medium">Focus: Task 1 of {activeTodos.length}</span>
-              </div>
-              <div className="py-2">
-                <TodoItem
-                  key={activeTodos[0].id}
-                  {...activeTodos[0]}
-                  categories={CATEGORIES}
-                  activeTimerId={activeTimerId}
-                  onComplete={handleComplete}
-                  onDelete={handleDelete}
-                  onEdit={handleEdit}
-                  onNotesChange={handleNotesChange}
-                  onPriorityChange={handlePriorityChange}
-                  onSubtasksChange={handleSubtasksChange}
-                  onSnooze={handleSnooze}
-                  onStatusChange={handleStatusChange}
-                  onTimeUp={handleTimeUp}
-                  onTimerStart={handleTimerStart}
-                  onTimerStop={handleTimerStop}
-                />
-              </div>
-              {activeTodos.length > 1 && (
-                <p className="border-t border-ruled-line py-3 text-center font-mono text-base text-muted-foreground">
-                  {activeTodos.length - 1} more task{activeTodos.length - 1 !== 1 ? "s" : ""} waiting
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Active Todos */}
-          {!focusMode && activeTodos.length > 0 && (
+          {activeTodos.length > 0 && (
             <div className="px-6 pl-16">
               <div className="flex items-center gap-2 border-b border-ruled-line py-3 text-base text-muted-foreground">
                 <Square className="h-4 w-4" />
